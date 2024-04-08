@@ -76,7 +76,7 @@ build_args() {
     --hidden-dropout 0.0 \
     --exit-duration-in-mins 220 \
     --tensor-model-parallel-size $TP_SIZE \
-    --pipeline-model-parallel-size 1 \
+    --pipeline_model_parallel_size 1 \
     --num-layers 24 \
     --hidden-size 1024 \
     --num-attention-heads 16 \

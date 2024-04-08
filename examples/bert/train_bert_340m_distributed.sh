@@ -51,7 +51,7 @@ TRAINING_ARGS=(
 
 MODEL_PARALLEL_ARGS=(
 	--tensor-model-parallel-size 8 
-	--pipeline-model-parallel-size 16 
+	--pipeline_model_parallel_size 16 
 )
 
 DATA_ARGS=(

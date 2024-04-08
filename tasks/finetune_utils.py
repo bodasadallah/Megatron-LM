@@ -13,10 +13,23 @@ from megatron.core import mpu
 from megatron.core.enums import ModelType
 from megatron.training.checkpointing import load_checkpoint
 from megatron.training.checkpointing import save_checkpoint
-from megatron.training import evaluate_and_print_results
-from megatron.training import setup_model_and_optimizer
-from megatron.training import train_step
-from megatron.training import training_log
+from megatron.core.utils import get_model_config
+
+################### BUGS #####################
+# from megatron.training import evaluate_and_print_results
+# from megatron.training import setup_model_and_optimizer
+########################################################33
+from megatron.training.training import evaluate_and_print_results, num_floating_point_operations
+from megatron.training.training import setup_model_and_optimizer
+
+################### BUGS #####################
+# from megatron.training import train_step
+# from megatron.training import training_log
+########################################################33
+
+from megatron.training.training import train_step
+from megatron.training.training import training_log
+
 from megatron.training.utils import average_losses_across_data_parallel_group
 from megatron.training.utils import calc_params_l2_norm
 from megatron.training.utils import check_adlr_autoresume_termination
@@ -146,7 +159,7 @@ def _train(model, optimizer, opt_param_scheduler, forward_step,
     """Train the model."""
     args = get_args()
     timers = get_timers()
-
+    num_floating_point_operations_so_far = args.num_floating_point_operations_so_far
     assert get_num_microbatches() == 1, "finetuning with gradient accumulation doesn't currently work"
 
     # Turn on training mode which enables dropout.
@@ -186,13 +199,24 @@ def _train(model, optimizer, opt_param_scheduler, forward_step,
 
             losses_dict, skipped_iter, grad_norm, num_zeros_in_grad = out
             iteration += 1
+            batch_size = mpu.get_data_parallel_world_size() * \
+                    args.micro_batch_size * \
+                    get_num_microbatches()
+            args.consumed_train_samples += batch_size
+            num_floating_point_operations_so_far += num_floating_point_operations(args, batch_size)
+            decoupled_learning_rate = None
 
+            if isinstance(model, list):
+                config = get_model_config(model[0])
+            else:
+                config = get_model_config(model)
             # Logging.
             params_norm = None
             if args.log_params_norm:
                 params_norm = calc_params_l2_norm(model)
             report_memory_flag = training_log(losses_dict, losses_dict_sum,
                                               optimizer.param_groups[0]['lr'],
+                                              decoupled_learning_rate,
                                               iteration,
                                               optimizer.get_loss_scale().item(),
                                               report_memory_flag, skipped_iter,
@@ -208,7 +232,7 @@ def _train(model, optimizer, opt_param_scheduler, forward_step,
             saved_checkpoint = False
             if args.save and args.save_interval and \
                iteration % args.save_interval == 0:
-                save_checkpoint(iteration, model, optimizer, opt_param_scheduler)
+                save_checkpoint(iteration, model, optimizer, opt_param_scheduler ,num_floating_point_operations_so_far)
                 saved_checkpoint = True
 
             # Evaluation
@@ -216,19 +240,20 @@ def _train(model, optimizer, opt_param_scheduler, forward_step,
                 prefix = 'iteration {}'.format(iteration)
                 evaluate_and_print_results(prefix, forward_step,
                                            valid_dataloader, model,
-                                           iteration, None, False)
+                                           iteration, None,config, False)
 
             # Exiting based on iterations
             if args.exit_interval and iteration % args.exit_interval == 0:
                 if not saved_checkpoint:
-                    save_checkpoint(iteration, model, optimizer, opt_param_scheduler)
+                    save_checkpoint(iteration, model, optimizer, opt_param_scheduler ,num_floating_point_operations_so_far)
                 torch.distributed.barrier()
                 print_rank_0('exiting program at iteration {}'.format(iteration))
                 sys.exit()
 
         # Checkpointing at the end of each epoch.
         if args.save:
-            save_checkpoint(iteration, model, optimizer, opt_param_scheduler)
+            save_checkpoint(iteration, model, optimizer, opt_param_scheduler ,num_floating_point_operations_so_far)
+
 
         # Callback at the end of each epoch.
         if end_of_epoch_callback is not None:

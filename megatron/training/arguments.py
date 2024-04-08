@@ -599,7 +599,7 @@ def _add_transformer_engine_args(parser):
     group.add_argument('--no-fp8-wgrad', action='store_false',
                        help='Execute wgrad in higher precision even for FP8 runs',
                        dest='fp8_wgrad')
-    group.add_argument('--transformer-impl', default='transformer_engine',
+    group.add_argument('--transformer-impl', default='local',
                        choices=['local', 'transformer_engine'],
                        help='Which Transformer implementation to use.')
 
@@ -1181,7 +1181,7 @@ def _add_checkpointing_args(parser):
                        help='Load model for finetuning. Do not load optimizer '
                        'or rng state from checkpoint and set iteration to 0. '
                        'Assumed when loading a release checkpoint.')
-    group.add_argument('--pretrained-checkpoint', type=str, default=None,
+    group.add_argument('--pretrained_checkpoint', type=str, default=None,
                        help='Directory containing a pretrained model checkpoint for finetuning.')
     group.add_argument('--ckpt-step', type=int, default=None,
                        help='Checkpoint step to load model from.')
@@ -1257,9 +1257,9 @@ def _add_distributed_args(parser):
 
     group.add_argument('--tensor-model-parallel-size', type=int, default=1,
                        help='Degree of tensor model parallelism.')
-    group.add_argument('--pipeline-model-parallel-size', type=int, default=1,
+    group.add_argument('--pipeline_model_parallel_size', type=int, default=1,
                        help='Degree of pipeline model parallelism.')
-    group.add_argument('--pipeline-model-parallel-split-rank',
+    group.add_argument('--pipeline_model_parallel_split_rank',
                        type=int, default=None,
                        help='Rank where encoder and decoder should be split.')
     group.add_argument('--model-parallel-size', type=int, default=None,

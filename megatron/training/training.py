@@ -63,9 +63,6 @@ def print_datetime(string):
 
 
 def num_floating_point_operations(args, batch_size):
-    # Attention projection size.
-    query_projection_size = args.kv_channels * args.num_attention_heads
-    query_projection_to_hidden_size_ratio = query_projection_size / args.hidden_size
     # Group Query Attention.
     if not args.group_query_attention:
         args.num_query_groups = args.num_attention_heads
@@ -80,21 +77,14 @@ def num_floating_point_operations(args, batch_size):
         * args.hidden_size
         * args.hidden_size
         * (
-            # Attention.
-            (
-                (
-                    1
-                    + (args.num_query_groups / args.num_attention_heads)
-                    + (args.seq_length / args.hidden_size)
-                ) * query_projection_to_hidden_size_ratio
-            )
-            # MLP.
+            1
             + (
                 (args.ffn_hidden_size / args.hidden_size)
                 * num_experts_routed_to
                 * gated_linear_multiplier
             )
-            # Logit.
+            + (args.num_query_groups / args.num_attention_heads)
+            + (args.seq_length / args.hidden_size)
             + (args.padded_vocab_size / (2 * args.num_layers * args.hidden_size))
         )
     )
@@ -414,12 +404,16 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
     for model_module in model:
         model_module.cuda(torch.cuda.current_device())
 
+
+
     # Fp16 conversion.
     if args.fp16 or args.bf16:
         model = [Float16Module(model_module, args) for model_module in model]
 
     if wrap_with_ddp:
+
         config = get_model_config(model[0])
+        config = None
         model = [DDP(config,
                      model_chunk,
                      data_parallel_group=mpu.get_data_parallel_group(with_context_parallel=True),
@@ -501,7 +495,9 @@ def setup_model_and_optimizer(model_provider_func,
     timers = get_timers()
 
     model = get_model(model_provider_func, model_type)
+    # print(f'=============> {model.config}')
     unwrapped_model = unwrap_model(model)
+    # print(f'=============> {unwrapped_model.config}')
 
     kwargs = {}
     for f in dataclasses.fields(OptimizerConfig):
@@ -536,7 +532,7 @@ def setup_model_and_optimizer(model_provider_func,
 
 
 def train_step(forward_step_func, data_iterator,
-               model, optimizer, opt_param_scheduler, config):
+               model, optimizer, opt_param_scheduler,config):
     """Single training step."""
     args = get_args()
     timers = get_timers()
@@ -601,7 +597,7 @@ def train_step(forward_step_func, data_iterator,
     return {}, skipped_iter, grad_norm, num_zeros_in_grad
 
 
-def training_log(loss_dict, total_loss_dict, learning_rate, decoupled_learning_rate, iteration,
+def training_log(loss_dict, total_loss_dict,last_loss, learning_rate, decoupled_learning_rate, iteration,
                  loss_scale, report_memory_flag, skipped_iter,
                  grad_norm, params_norm, num_zeros_in_grad):
     """Log training information such as losses, timing, ...."""
@@ -704,12 +700,20 @@ def training_log(loss_dict, total_loss_dict, learning_rate, decoupled_learning_r
                               args.consumed_train_samples)
             if wandb_writer:
                 wandb_writer.log({'batch-size': batch_size}, iteration)
+
         for key in loss_dict:
+
+
             writer.add_scalar(key , loss_dict[key], iteration)
             writer.add_scalar(key + ' vs samples', loss_dict[key],
                               args.consumed_train_samples)
             if wandb_writer:
                 wandb_writer.log({key: loss_dict[key]}, iteration)
+                
+
+
+
+
         if args.log_loss_scale_to_tensorboard:
             writer.add_scalar('loss-scale', loss_scale, iteration)
             writer.add_scalar('loss-scale vs samples', loss_scale,
@@ -761,6 +765,39 @@ def training_log(loss_dict, total_loss_dict, learning_rate, decoupled_learning_r
         moe_loss_scale = 1 / get_num_microbatches()
         track_moe_metrics(moe_loss_scale, iteration, writer, wandb_writer, total_loss_dict, args.moe_per_layer_logging)
 
+    #############################33 LOG SE ###############################
+    ###### Skip first iteration
+    SE_logs = ''
+    if next(iter( last_loss.items() ))[1].item() > 0:
+        total_loss = torch.tensor([0.0], dtype=torch.float, device='cuda')
+        last_total_loss = torch.tensor([0.0], dtype=torch.float, device='cuda')
+        for key in loss_dict:
+            total_loss += loss_dict[key]
+            last_total_loss += last_loss[key]
+            ## Logs SE
+            k = f'{key} SE'
+            v = torch.abs(loss_dict[key] - last_loss[key]) / batch_size
+            SE_logs += f'{k} SE: {v.item():.6f} |'
+            if wandb_writer:
+                wandb_writer.log({k: v}, iteration)
+        ### Report combined_loss
+        k = f'Total Loss SE'
+        v = torch.abs(total_loss - last_total_loss) / batch_size
+        SE_logs += f'Toatal Loss SE: {v.item():.6f} |'
+        if wandb_writer:
+            wandb_writer.log({k: v}, iteration)
+
+        ########################################################################3
+
+
+
+
+
+
+
+
+
+
     if iteration % args.log_interval == 0:
         elapsed_time = timers('interval-time').elapsed(barrier=True)
         elapsed_time_per_iteration = elapsed_time / total_iterations
@@ -781,7 +818,34 @@ def training_log(loss_dict, total_loss_dict, learning_rate, decoupled_learning_r
             args.consumed_train_samples)
         log_string += ' elapsed time per iteration (ms): {:.1f} |'.format(
             elapsed_time_per_iteration * 1000.0)
+        
+        
+        log_string += SE_logs
+        # #############################33 LOG SE ###############################
+        # ###### Skip first iteration
+        # if next(iter( last_loss.items() ))[1].item() > 0:
+        #     total_loss = torch.tensor([0.0], dtype=torch.float, device='cuda')
+        #     last_total_loss = torch.tensor([0.0], dtype=torch.float, device='cuda')
+        #     for key in loss_dict:
+        #         total_loss += loss_dict[key]
+        #         last_total_loss += last_loss[key]
+        #         ## Logs SE
+        #         k = f'{key} SE'
+        #         v = torch.abs(loss_dict[key] - last_loss[key]) / batch_size
+        #         log_string += f'SE for {k}: {v.item():.4f} |'
+        #         if wandb_writer:
+        #             wandb_writer.log({k: v}, iteration)
+        #     ### Report combined_loss
+        #     k = f'Total Loss SE'
+        #     v = torch.abs(total_loss - last_total_loss) / batch_size
+        #     log_string += f'SE for Toatal Loss: {v.item():.4f} |'
+        #     if wandb_writer:
+        #         wandb_writer.log({k: v}, iteration)
+
+        #     ########################################################################3
+
         if args.log_throughput:
+
             log_string += f' throughput per GPU (TFLOP/s/GPU): {throughput:.1f} |'
             if args.log_timers_to_tensorboard:
                 if writer:
@@ -974,6 +1038,8 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                 'validation_iterations_time_msecs_avg': validation_iterations_time_msecs_avg
             })
 
+    begin_iter = iteration
+    last_loss= {}
     while iteration < args.train_iters:
         if args.profile and \
            iteration == args.profile_step_start and \
@@ -1003,6 +1069,14 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                        optimizer,
                        opt_param_scheduler,
                        config)
+        
+        ## Initialize last_loss
+        if iteration == begin_iter:
+            last_loss = loss_dict.copy()
+            for k in last_loss:
+                last_loss[k] = torch.tensor([-10], dtype=torch.float, device='cuda')
+
+
         iteration += 1
         batch_size = mpu.get_data_parallel_world_size() * \
                      args.micro_batch_size * \
@@ -1026,13 +1100,17 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                 decoupled_learning_rate = param_group['lr']
             else:
                 learning_rate = param_group['lr']
-        report_memory_flag = training_log(loss_dict, total_loss_dict,
+        report_memory_flag = training_log(loss_dict, total_loss_dict,last_loss,
                                           learning_rate,
                                           decoupled_learning_rate,
                                           iteration, loss_scale,
                                           report_memory_flag, skipped_iter,
                                           grad_norm, params_norm, num_zeros_in_grad)
 
+        
+       
+        last_loss = loss_dict
+        
         # Autoresume
         if args.adlr_autoresume and \
            (iteration % args.adlr_autoresume_interval == 0):

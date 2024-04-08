@@ -11,7 +11,10 @@ import torch
 from megatron.training import get_args
 from megatron.training import print_rank_last, is_last_rank
 from megatron.core import mpu
-from megatron.schedules import get_forward_backward_func
+from megatron.core.pipeline_parallel import get_forward_backward_func
+from megatron.training.global_vars import get_num_microbatches 
+################# BUG ######################
+# from megatron.schedules import get_forward_backward_func
 from tasks.finetune_utils import build_data_loader
 from tasks.finetune_utils import process_batch
 
@@ -140,8 +143,14 @@ def calculate_correct_answers(name, model, dataloader,
             args.micro_batch_size = actual_batch_size * sample_multiplier
             args.global_batch_size = actual_batch_size * sample_multiplier * num_micro_batches
 
-            loss_dicts = forward_backward_func(correct_answers_forward_step, batch, model,
-                                               optimizer=None, timers=None, forward_only=True)
+            loss_dicts = forward_backward_func(forward_step_func=correct_answers_forward_step,
+                                                data_iterator= batch,
+                                                model= model,
+                                                num_microbatches=get_num_microbatches(),
+                                                seq_length=args.seq_length,
+                                                micro_batch_size=args.micro_batch_size,
+                                                decoder_seq_length=args.decoder_seq_length,
+                                                forward_only=True)
 
             for loss_dict in loss_dicts:
                 if output_predictions:

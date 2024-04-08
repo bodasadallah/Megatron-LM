@@ -17,7 +17,7 @@ DATASET="0.2 ${DATASET_1} 0.3 ${DATASET_2} 0.5 ${DATASET_3}"
 
 options=" \
 	--tensor-model-parallel-size 8 \
-	--pipeline-model-parallel-size 16 \
+	--pipeline_model_parallel_size 16 \
         --num-layers 96 \
         --hidden-size 12288 \
         --num-attention-heads 96 \

@@ -82,7 +82,7 @@ torch_run_cmd="torchrun $DISTRIBUTED_ARGS \
     --decoder-seq-length 128 \
     --max-position-embeddings 512 \
     --tensor-model-parallel-size $TP_SIZE \
-    --pipeline-model-parallel-size $PP_SIZE \
+    --pipeline_model_parallel_size $PP_SIZE \
     --micro-batch-size ${MBS:-4} \
     --global-batch-size ${GBS:-32} \
     --lr 0.0001 \

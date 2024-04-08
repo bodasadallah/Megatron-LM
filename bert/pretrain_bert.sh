@@ -2,15 +2,17 @@
 
 
 
-pip install  wandb
+pip install  wandb flash-attn
 
 WANDBKEY='628fc7dc1050e9a41e10a9dc7ad0390219369cae'
 wandb login $WANDBKEY
 
 WANDB_API_KEY=$WANDBKEY
 
-WORLD_SIZE=1
 
+
+WANDB_PROJECT='ML710-prject-megatron'
+WANDB_EXP_NAME='bert-pretrain-MP-4'
 
 GPUS_PER_NODE=4
 # Change for multinode config
@@ -20,16 +22,14 @@ NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
-WANDB_PROJECT='ML710-prject-megatron'
-WANDB_EXP_NAME='bert-3650-race-ft'
 WANDB_SAVE_DIR='logs'
 
-TRAIN_DATA="bert/RACE/train/middle"
-VALID_DATA="bert/RACE/dev/middle \
-            bert/RACE/dev/high"
+DATA_PATH="bert/pretraining_data/bdata_text_sentence"
+# VALID_DATA="bert/RACE/dev/middle \
+#             bert/RACE/dev/high"
 VOCAB_FILE=bert/bert-large-uncased-vocab.txt
 PRETRAINED_CHECKPOINT=bert/bert_345m_uncased
-CHECKPOINT_PATH=checkpoints/bert_345m_race
+CHECKPOINT_PATH=checkpoints/pretrain_mp
 
 
 DISTRIBUTED_ARGS="
@@ -53,37 +53,40 @@ LOGGING_ARGS="
 "
 
 
+    # --DDP-impl local
+    # --sequence-parallel \
 DISTRIBUTED_TRAINING_ARGS="
-    --sequence-parallel \
-    --tensor-model-parallel-size 1 \
-    --pipeline_model_parallel_size 4 \
-    --pipeline_model_parallel_split_rank 2 
+    --tensor-model-parallel-size 4 \
+    --pipeline_model_parallel_size 1 \
+    --pipeline_model_parallel_split_rank 1 
 "
 # --rampup-batch-size
+    # --global-batch-size 24 \
 TRAINING_ARGS="
     --seed 1234 \
-    --micro-batch-size 4 \
-    --lr 1.0e-5 \
+    --micro-batch-size 32 \
+    --train-iters 1000000 \
+    --lr-decay-iters 990000 \
     --lr-decay-style linear \
-    --lr-warmup-fraction 0.06 \
+    --weight-decay 1e-2 \
+    --min-lr 1.0e-5 \
+    --lr 0.0001 \
+    --min-lr 1.0e-5 \
+    --lr-warmup-fraction .01 
     --seq-length 512 \
     --max-position-embeddings 512 \
     --recompute-activations \
     --recompute-granularity selective \
-    --log-interval 100 \
-    --train-samples 10000 \
     --tensorboard-dir logs/tensor_board \
     --use-flash-attn \
-    --weight-decay 1.0e-1 \
     --clip-grad 1.0 \
     --hidden-dropout 0.1 \
     --attention-dropout 0.1 \
     --fp16 \
-    --epochs 3 \
-    --save-interval 100 \
-    --eval-interval 100 \
-    --eval-iters 50 \
-    --finetune \
+    --log-interval 100 \
+    --save-interval 10000 \
+    --eval-interval 1000 \
+    --eval-iters 10 \
     --auto-detect-ckpt-format
 "
 MODEL_ARGS="
@@ -92,19 +95,17 @@ MODEL_ARGS="
     --num-attention-heads 16
 "
 DATA_ARGS="
-    --valid-data $VALID_DATA \
-    --train-data $TRAIN_DATA \
+    --data-path $DATA_PATH \
     --tokenizer-type BertWordPieceLowerCase \
     --vocab-file $VOCAB_FILE \
-    --task RACE \
-    --pretrained_checkpoint $PRETRAINED_CHECKPOINT \
-    --save $CHECKPOINT_PATH
+    --save $CHECKPOINT_PATH \
+    --split 949,50,1
 "
+    # --load $CHECKPOINT_PATH \
 
 ######## To enable async all reduce #########
 export CUDA_DEVICE_MAX_CONNECTIONS=1
-# python -m torch.distributed.launch $DISTRIBUTED_ARGS ./tasks/main.py \
-torchrun $DISTRIBUTED_ARGS ./tasks/main.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun $DISTRIBUTED_ARGS pretrain_bert.py \
         $MODEL_ARGS \
         $LOGGING_ARGS \
         $TRAINING_ARGS \

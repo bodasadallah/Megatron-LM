@@ -40,7 +40,7 @@ The architecture arguments below shows configuration for T5 220M model.
        --decoder-seq-length 128 \
        --max-position-embeddings 512 \
        --tensor-model-parallel-size 1 \
-       --pipeline-model-parallel-size 1 \
+       --pipeline_model_parallel_size 1 \
 
 ```
 

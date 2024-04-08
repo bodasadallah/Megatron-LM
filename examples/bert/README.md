@@ -38,7 +38,7 @@ The example in this folder shows you how to run 340m large model. There are othe
        --hidden-size 2560 \
        --num-attention-heads 32 \
        --tensor-model-parallel-size 1 \
-       --pipeline-model-parallel-size 1 \
+       --pipeline_model_parallel_size 1 \
 
 ```
 
@@ -48,6 +48,6 @@ The example in this folder shows you how to run 340m large model. There are othe
        --hidden-size 6144 \
        --num-attention-heads 96 \
        --tensor-model-parallel-size 4 \
-       --pipeline-model-parallel-size 4 \
+       --pipeline_model_parallel_size 4 \
 
 ```

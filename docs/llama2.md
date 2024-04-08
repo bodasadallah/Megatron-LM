@@ -75,7 +75,7 @@ If loading for either inference or finetuning, use the following arguments:
 
 ```
 --tensor-model-parallel-size ${TP} \
---pipeline-model-parallel-size 1 \
+--pipeline_model_parallel_size 1 \
 --seq-length 4096 \
 --max-position-embeddings 4096 \
 --tokenizer-type Llama2Tokenizer \

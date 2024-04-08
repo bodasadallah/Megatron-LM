@@ -98,6 +98,7 @@ def get_forward_backward_func():
         if parallel_state.get_virtual_pipeline_model_parallel_world_size() is not None:
             forward_backward_func = forward_backward_pipelining_with_interleaving
         else:
+
             forward_backward_func = forward_backward_pipelining_without_interleaving
     else:
         forward_backward_func = forward_backward_no_pipelining
@@ -478,7 +479,7 @@ def forward_backward_pipelining_with_interleaving(
 
     if num_microbatches % pipeline_parallel_size != 0:
         msg = f'number of microbatches ({num_microbatches}) is not divisible by '
-        msg += f'pipeline-model-parallel-size ({pipeline_parallel_size}) '
+        msg += f'pipeline_model_parallel_size ({pipeline_parallel_size}) '
         msg += 'when using interleaved schedule'
         raise RuntimeError(msg)
 

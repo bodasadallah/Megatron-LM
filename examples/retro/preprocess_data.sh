@@ -61,7 +61,7 @@ RETRO_QUERY_NPROBE=4096
 ARGS=" \
     --distributed-timeout-minutes 600 \
     --tensor-model-parallel-size 1 \
-    --pipeline-model-parallel-size 1 \
+    --pipeline_model_parallel_size 1 \
     --num-layers 24 \
     --hidden-size 1024 \
     --num-attention-heads 16 \

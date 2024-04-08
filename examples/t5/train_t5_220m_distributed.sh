@@ -50,7 +50,7 @@ T5_ARGS="
     --init-method-std 0.015 \
     --transformer-impl transformer_engine \
     --tensor-model-parallel-size 1 \
-    --pipeline-model-parallel-size 1 \
+    --pipeline_model_parallel_size 1 \
     --use-mcore-models \
 "
 

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: megatron
+spec:
+  restartPolicy: Never
+  containers:
+    - name: cuda-container
+      image: "nvcr.io/nvidia/pytorch:24.01-py3"
+      workingDir: "/megatron"
+      command: ["sh", "finetune.sh"]
+      resources:
+        limits:
+          nvidia.com/gpu: 4
+      volumeMounts:
+        - mountPath: /llama-factory
+          name: main
+  volumes:
+    - name: main
+      hostPath:
+        path: /home/abdelrahman/MBZUAI/Megatron-LM/

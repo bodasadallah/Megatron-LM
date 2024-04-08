@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bert-pretrain
+spec:
+  restartPolicy: Never
+  containers:
+    - name: cuda-container
+      image: "nvcr.io/nvidia/pytorch:23.05-py3"
+      workingDir: "/megatron"
+      # command: ["sh", "bert/data_preprocess.sh"]
+      command: ["sh", "bert/pretrain_bert.sh"]
+      resources:
+        requests:
+          memory: "100Gi"
+        limits:
+          memory: "1000Gi"
+          nvidia.com/gpu: 4
+          # memory: "200000Mi"
+      volumeMounts:
+        - mountPath: /megatron
+          name: main
+        - mountPath: /dev/shm
+          name: dshm
+  volumes:
+    - name: main
+      hostPath:
+        path: /home/abdelrahman/MBZUAI/Megatron-LM/
+    - name: dshm
+      emptyDir:
+        medium: Memory

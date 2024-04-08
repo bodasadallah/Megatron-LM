@@ -117,7 +117,7 @@ build_torch_run_cmd() {
        --eval-iters 10 \
        --transformer-impl $TRANSFORMER_IMPL \
        --tensor-model-parallel-size $TP_SIZE \
-       --pipeline-model-parallel-size $PP_SIZE \
+       --pipeline_model_parallel_size $PP_SIZE \
        --no-bias-swiglu-fusion \
        --no-rope-fusion \
        ${VP_SIZE:+--num-layers-per-virtual-pipeline-stage "$VP_SIZE"} \

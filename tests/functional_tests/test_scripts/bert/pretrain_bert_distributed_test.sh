@@ -80,7 +80,7 @@ torch_run_cmd="torchrun $DISTRIBUTED_ARGS \
        --eval-interval 1000 \
        --eval-iters 10 \
        --tensor-model-parallel-size $TP_SIZE \
-       --pipeline-model-parallel-size $PP_SIZE \
+       --pipeline_model_parallel_size $PP_SIZE \
        ${VP_SIZE:+--num-layers-per-virtual-pipeline-stage "$VP_SIZE"} \
        ${USE_MCORE:+--use-mcore-models} \
        ${ADDITIONAL_PARAMS:+$ADDITIONAL_PARAMS} \

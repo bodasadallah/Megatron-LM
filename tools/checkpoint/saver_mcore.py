@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 
 import os
 import sys
@@ -7,16 +7,10 @@ from importlib.metadata import version
 from pkg_resources import packaging
 
 from setter import ModelSetter
-from utils import get_mcore_transformer_block_key, print_memory_usage
+from utils import print_memory_usage
 
 
 class MCoreSetter(ModelSetter):
-
-    transformer_block_key = None
-
-    @classmethod
-    def get_transformer_block(cls, model):
-        return getattr(model, cls.transformer_block_key)
 
     @classmethod
     def has_position_embeddings(cls, model):
@@ -40,10 +34,9 @@ class MCoreSetter(ModelSetter):
         weight=None,
         bias=None,
     ):
-        block = cls.get_transformer_block(model)
-        cls.set_tensor(block.final_layernorm.weight, weight)
+        cls.set_tensor(model.decoder.final_layernorm.weight, weight)
         if bias is not None:
-            cls.set_tensor(block.final_layernorm.bias, bias)
+            cls.set_tensor(model.decoder.final_layernorm.bias, bias)
 
     @classmethod
     def set_output_word_embeddings(
@@ -86,9 +79,9 @@ class MCoreSetter(ModelSetter):
         if dense_bias is not None:
             cls.set_tensor(model.lm_head.dense.bias, dense_bias)
 
-        cls.set_tensor(model.lm_head.layer_norm.weight, norm_weight)
+        cls.set_tensor(model.lm_head.norm.weight, norm_weight)
         if norm_bias is not None:
-            cls.set_tensor(model.lm_head.layer_norm.bias, norm_bias)
+            cls.set_tensor(model.lm_head.norm.bias, norm_bias)
 
     @classmethod
     def set_binary_head(
@@ -123,8 +116,7 @@ class MCoreLocalSetter(MCoreSetter):
         mlp_fc2_bias=None,
     ):
 
-        block = cls.get_transformer_block(model)
-        l = block.layers[layer_idx]
+        l = model.decoder.layers[layer_idx]
 
         # Self attention.
         cls.set_tensor(l.input_layernorm.weight, self_attn_norm_weight)
@@ -174,8 +166,7 @@ class MCoreTESetter(MCoreSetter):
         mlp_fc2_bias=None,
     ):
 
-        block = cls.get_transformer_block(model)
-        l = block.layers[layer_idx]
+        l = model.decoder.layers[layer_idx]
 
         # Self attention.
         cls.set_tensor(l.self_attention.linear_qkv.layer_norm_weight, self_attn_norm_weight)
@@ -204,15 +195,6 @@ class MCoreTESetter(MCoreSetter):
             cls.set_tensor(l.mlp.linear_fc2.bias, mlp_fc2_bias)
 
 
-def get_model_setter(model_type, transformer_impl):
-    setter = {
-        "local" : MCoreLocalSetter,
-        "transformer_engine" : MCoreTESetter,
-    }[transformer_impl]
-    setter.transformer_block_key = get_mcore_transformer_block_key(model_type)
-    return setter
-
-
 def add_arguments(parser):
     group = parser.add_argument_group(title='M-Core saver')
 
@@ -225,7 +207,7 @@ def add_arguments(parser):
     group.add_argument('--target-pipeline-parallel-size', type=int,
                        help='Target tensor model parallel size, default to the pipeline parall size '
                        'in the input checkpoint if provided by the loader, otherwise to 1')
-    group.add_argument('--saver-transformer-impl', default='transformer_engine',
+    group.add_argument('--transformer-impl', required=True,
                        choices=['local', 'transformer_engine'],
                        help='Which Transformer implementation to use.')
 
@@ -316,7 +298,7 @@ def save_checkpoint(queue, args):
                 '--position-embedding-type', str(md.position_embedding_type),
                 '--tokenizer-type', str(md.tokenizer_type),
                 '--tensor-model-parallel-size', str(args.target_tensor_parallel_size),
-                '--pipeline-model-parallel-size', str(args.target_pipeline_parallel_size),
+                '--pipeline_model_parallel_size', str(args.target_pipeline_parallel_size),
                 '--no-masked-softmax-fusion',
                 '--no-bias-gelu-fusion',
                 '--no-bias-dropout-fusion',
@@ -390,7 +372,7 @@ def save_checkpoint(queue, args):
     margs.save = args.save_dir
     margs.tensorboard_dir = None
     margs.tokenizer_model = None
-    margs.transformer_impl = args.saver_transformer_impl
+    margs.transformer_impl = args.transformer_impl
 
     set_global_variables(margs, build_tokenizer=False)
 
@@ -463,7 +445,10 @@ def save_checkpoint(queue, args):
     out_word_embed = torch.chunk(full_word_embed, args.target_tensor_parallel_size, dim=0)
 
     # Parameter setter class.
-    setter = get_model_setter(md.model_type, margs.transformer_impl)
+    setter = {
+        "local" : MCoreLocalSetter,
+        "transformer_engine" : MCoreTESetter,
+    }[args.transformer_impl]
 
     # Get models.
     def get_models(count, dtype, pre_process, post_process):
@@ -499,7 +484,7 @@ def save_checkpoint(queue, args):
             post_process = pp_rank == args.target_pipeline_parallel_size - 1
             models = get_models(args.target_tensor_parallel_size, md.params_dtype, False, post_process)
 
-        for layer in range(len(setter.get_transformer_block(models[0]).layers)):
+        for layer in range(len(models[0].decoder.layers)):
             msg = queue_get(f"transformer layer {total_layer_num}")
 
             # duplicated tensors

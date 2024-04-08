@@ -23,7 +23,7 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS ./tasks/main.py \
                --tokenizer-type BertWordPieceLowerCase \
                --vocab-file $VOCAB_FILE \
                --epochs 5 \
-               --pretrained-checkpoint $PRETRAINED_CHECKPOINT \
+               --pretrained_checkpoint $PRETRAINED_CHECKPOINT \
                --tensor-model-parallel-size 1 \
                --num-layers 24 \
                --hidden-size 1024 \

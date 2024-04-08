@@ -59,7 +59,7 @@ The example in this folder shows you how to run a 2B model. Below are a few othe
        --num-attention-heads 16 \
        --seq-length 2048 \
        --tensor-model-parallel-size 1 \
-       --pipeline-model-parallel-size 1 \
+       --pipeline_model_parallel_size 1 \
 
 ```
 
@@ -69,6 +69,6 @@ The example in this folder shows you how to run a 2B model. Below are a few othe
        --hidden-size 2560 \
        --num-attention-heads 32 \
        --tensor-model-parallel-size 1 \
-       --pipeline-model-parallel-size 1 \
+       --pipeline_model_parallel_size 1 \
 
 ```

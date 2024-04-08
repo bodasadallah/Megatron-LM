@@ -28,7 +28,7 @@ BPE_MERGE_FILE=<path to bpe merges file>
 # that are not listed here. 
 export MEGATRON_PARAMS=" ${MEGATRON_EXTRA_PARAMS} \
 	--tensor-model-parallel-size ${TP} \
-	--pipeline-model-parallel-size ${PP} \
+	--pipeline_model_parallel_size ${PP} \
 	--micro-batch-size ${MBS} \
 	--global-batch-size ${GBS} \
         --num-layers ${NLS} \

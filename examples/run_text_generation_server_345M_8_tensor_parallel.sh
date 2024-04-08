@@ -14,7 +14,7 @@ pip install flask-restful
 
 python -m torch.distributed.launch $DISTRIBUTED_ARGS tools/run_text_generation_server.py   \
        --tensor-model-parallel-size 8  \
-       --pipeline-model-parallel-size 1  \
+       --pipeline_model_parallel_size 1  \
        --num-layers 24  \
        --hidden-size 1024  \
        --load ${CHECKPOINT}  \

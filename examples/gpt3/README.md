@@ -41,7 +41,7 @@ The example in this folder shows you how to run 175B model. There are other conf
        --num-attention-heads 8 \
        --seq-length 1024 \
        --tensor-model-parallel-size 1 \
-       --pipeline-model-parallel-size 1 \
+       --pipeline_model_parallel_size 1 \
 
 ```
 
@@ -52,6 +52,6 @@ The example in this folder shows you how to run 175B model. There are other conf
        --num-attention-heads 16 \
        --seq-length 2048 \
        --tensor-model-parallel-size 1 \
-       --pipeline-model-parallel-size 1 \
+       --pipeline_model_parallel_size 1 \
 
 ```

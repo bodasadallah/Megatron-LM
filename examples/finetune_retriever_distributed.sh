@@ -22,7 +22,7 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS ./tasks/main.py \
         --task RET-FINETUNE-NQ \
         --train-with-neg \
         --train-hard-neg 1 \
-        --pretrained-checkpoint ${PRETRAINED_CHECKPOINT} \
+        --pretrained_checkpoint ${PRETRAINED_CHECKPOINT} \
         --num-layers 12 \
         --hidden-size 768 \
         --num-attention-heads 12 \

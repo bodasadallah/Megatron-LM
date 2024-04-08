@@ -7,3 +7,11 @@ build
 slurm*
 logs
 .vscode
+*.zip
+bert_345m_uncased
+RACE
+checkpoints
+pretraining_data
+*.bz2
+gpt
+wiki_data

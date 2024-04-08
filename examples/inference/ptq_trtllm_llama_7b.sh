@@ -49,7 +49,7 @@ options=" \
     --no-bias-dropout-fusion \
     --no-async-tensor-model-parallel-allreduce \
     --tensor-model-parallel-size ${TP} \
-    --pipeline-model-parallel-size 1 \
+    --pipeline_model_parallel_size 1 \
     --num-layers 32 \
     --hidden-size 4096 \
     --ffn-hidden-size 11008 \

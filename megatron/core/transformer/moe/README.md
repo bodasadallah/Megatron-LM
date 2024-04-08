@@ -159,7 +159,7 @@ TRAINING_ARGS=(
 
 MODEL_PARALLEL_ARGS=(
     --tensor-model-parallel-size 4
-    --pipeline-model-parallel-size 1
+    --pipeline_model_parallel_size 1
     --sequence-parallel
     --use-distributed-optimizer
 )

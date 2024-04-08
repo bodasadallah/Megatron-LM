@@ -24,7 +24,7 @@ DISTRIBUTED_ARGS="
 
 BERT_ARGS="
     --tensor-model-parallel-size 2 \
-    --pipeline-model-parallel-size 2 \
+    --pipeline_model_parallel_size 2 \
     --num-layers 24 \
     --hidden-size 1024 \
     --num-attention-heads 16 \

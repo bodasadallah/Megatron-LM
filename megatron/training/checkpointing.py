@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 
 """Input/output checkpointing."""
 
@@ -283,7 +283,26 @@ def save_checkpoint(iteration, model, optimizer, opt_param_scheduler,
     # Checkpoint name.
     checkpoint_name = get_checkpoint_name(args.save, iteration, return_base_dir=args.use_dist_ckpt)
 
-    # Save distributed optimizer's custom parameter state.
+
+    if not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0:
+
+        ## DELETE ALL OLD CHECKPOINTS ######################
+        import os, shutil
+        folder = args.save
+        for filename in os.listdir(folder):
+            file_path = os.path.join(folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    # os.unlink(file_path)
+                    continue
+                elif os.path.isdir(file_path) and 'iter_' in file_path:
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (file_path, e))
+    ####################################################################
+
+
+        # Save distributed optimizer's custom parameter state.
     if args.use_distributed_optimizer and not args.no_save_optim and optimizer is not None and not args.use_dist_ckpt:
         optim_checkpoint_name = \
             get_distributed_optimizer_checkpoint_name(checkpoint_name)
@@ -517,11 +536,9 @@ def _load_base_checkpoint(load_dir, rank0=False, sharded_state_dict=None,
             'megatron.legacy.fp16_deprecated.loss_scaler']
         sys.modules['megatron.fp16.loss_scaler'] = sys.modules[
             'megatron.legacy.fp16_deprecated.loss_scaler']
-        sys.modules['megatron.model'] = sys.modules['megatron.legacy.model']
         state_dict = torch.load(checkpoint_name, map_location='cpu')
         sys.modules.pop('fp16.loss_scaler', None)
         sys.modules.pop('megatron.fp16.loss_scaler', None)
-        sys.modules.pop('megatron.model', None)
     except BaseException as e:
         print_rank_0('could not load the checkpoint')
         print_rank_0(e)
@@ -611,7 +628,6 @@ def load_args_from_checkpoint(args, load_arg='load',
     _set_arg('normalization', force=True)
     _set_arg('tokenizer_type')
     _set_arg('padded_vocab_size')
-    _set_arg('apply_query_key_layer_scaling', force=True)
     if checkpoint_version < 3.0:
         _set_arg('tensor_model_parallel_size',
                  'model_parallel_size')
@@ -675,7 +691,19 @@ def load_checkpoint(model, optimizer, opt_param_scheduler, load_arg='load', stri
 
     state_dict, checkpoint_name, release = _load_base_checkpoint(load_dir, rank0=False, **load_kwargs)
 
-    # Checkpoint not loaded.
+    # print(dist_checkpointing.check_is_distributed_checkpoint(checkpoint_name))
+
+    # print(model)
+    # for g in ['language_model', 'lm_head', 'binary_head']:
+
+    #     print(state_dict['model'][g].keys())
+    #     prefix = "module."  # Prefix used by DDP
+    #     state_dict['model'][g] = {prefix + key: value for key, value in state_dict['model'][g].items()}
+    # # for k in model[0].keys():
+    # #     if 'module.' in k:
+    # #         print(k)
+
+    # # Checkpoint not loaded.
     if state_dict is None:
         # Iteration and num_floating_point_operations_so_far default to 0.
         return 0, 0

@@ -21,7 +21,9 @@ class MultipleChoice(MegatronModule):
                  num_tokentypes=2,
                  pre_process=True,
                  post_process=True):
-        super(MultipleChoice, self).__init__(share_embeddings_and_output_weights=False)
+        super(MultipleChoice, self).__init__(share_embeddings_and_output_weights=False,
+                                             ###############3 THis was the Bug ###############3
+                                              config=config)
         args = get_args()
 
         self.pre_process = pre_process
@@ -39,7 +41,9 @@ class MultipleChoice(MegatronModule):
         if self.post_process:
             self.multichoice_dropout = torch.nn.Dropout(args.hidden_dropout)
             self.multichoice_head = get_linear_layer(args.hidden_size, 1,
-                                                     init_method)
+                                                     ## BUG ##
+                                                    #  init_method
+                                                     init_method_normal)
             self._multichoice_head_key = 'multichoice_head'
 
     def set_input_tensor(self, input_tensor):

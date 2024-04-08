@@ -37,7 +37,7 @@ GPT_ARGS="--apply-layernorm-1p \
         --swiglu \
         --attention-dropout 0.0 \
         --hidden-dropout 0.0 \
-        --pipeline-model-parallel-size $pip_par \
+        --pipeline_model_parallel_size $pip_par \
         --tensor-model-parallel-size $mod_par \
         --num-layers $layers \
         --hidden-size $hid_dim \

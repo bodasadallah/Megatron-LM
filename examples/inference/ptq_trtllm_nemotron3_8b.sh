@@ -45,7 +45,7 @@ options=" \
     --attention-dropout 0.0 \
     --hidden-dropout 0.0 \
     --tensor-model-parallel-size ${TP} \
-    --pipeline-model-parallel-size 1 \
+    --pipeline_model_parallel_size 1 \
     --num-layers 32 \
     --hidden-size 4096 \
     --num-attention-heads 32 \
