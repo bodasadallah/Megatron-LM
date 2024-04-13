@@ -12,7 +12,7 @@ WANDB_API_KEY=$WANDBKEY
 
 
 WANDB_PROJECT='ML710-prject-megatron'
-WANDB_EXP_NAME='bert-pretrain-MP-4'
+WANDB_EXP_NAME='bert-pretrain-4devices-MP=2-PP=2'
 
 GPUS_PER_NODE=4
 # Change for multinode config
@@ -56,17 +56,20 @@ LOGGING_ARGS="
     # --DDP-impl local
     # --sequence-parallel \
 DISTRIBUTED_TRAINING_ARGS="
-    --tensor-model-parallel-size 4 \
-    --pipeline_model_parallel_size 1 \
-    --pipeline_model_parallel_split_rank 1 
+    --tensor-model-parallel-size 2 \
+    --pipeline_model_parallel_size 2 \
 "
+    # --pipeline_model_parallel_split_rank 1
+    
+     
 # --rampup-batch-size
     # --global-batch-size 24 \
+    # --train-iters 1000000 \
 TRAINING_ARGS="
     --seed 1234 \
-    --micro-batch-size 32 \
-    --train-iters 1000000 \
-    --lr-decay-iters 990000 \
+    --micro-batch-size 16 \
+    --train-samples 5000000
+    --lr-decay-samples 4000000 \
     --lr-decay-style linear \
     --weight-decay 1e-2 \
     --min-lr 1.0e-5 \

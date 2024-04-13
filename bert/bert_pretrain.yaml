@@ -25,7 +25,7 @@ spec:
   volumes:
     - name: main
       hostPath:
-        path: /home/abdelrahman/MBZUAI/Megatron-LM/
+        path: /home/abdelrahman/MBZUAI/boda-megatron/Megatron-LM/
     - name: dshm
       emptyDir:
         medium: Memory

@@ -393,13 +393,20 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
 
     # Print number of parameters.
     if mpu.get_data_parallel_rank() == 0:
+
+        mp_rank = mpu.get_tensor_model_parallel_rank()
+        pp_rank = mpu.get_pipeline_model_parallel_rank()
+        n_params = sum([sum([p.nelement() for p in model_module.parameters()])
+                 for model_module in model])
+        
         print(' > number of parameters on (tensor, pipeline) '
               'model parallel rank ({}, {}): {}'.format(
-            mpu.get_tensor_model_parallel_rank(),
-            mpu.get_pipeline_model_parallel_rank(),
-            sum([sum([p.nelement() for p in model_module.parameters()])
-                 for model_module in model])), flush=True)
-
+            mp_rank,pp_rank,n_params), flush=True)
+        
+        wandb = get_wandb_writer()
+        if wandb:
+            wandb.run.summary[f'number of parameters on (tensor, pipeline) '
+            'model parallel rank ({}, {})'.format(mp_rank,pp_rank)] = n_params
     # GPU allocation.
     for model_module in model:
         model_module.cuda(torch.cuda.current_device())
@@ -709,6 +716,9 @@ def training_log(loss_dict, total_loss_dict,last_loss, learning_rate, decoupled_
                               args.consumed_train_samples)
             if wandb_writer:
                 wandb_writer.log({key: loss_dict[key]}, iteration)
+                # add loss vs samples
+                # wandb_writer.log({key + ' vs. samples' : loss_dict[key]}, args.consumed_train_samples)
+
                 
 
 
@@ -768,7 +778,8 @@ def training_log(loss_dict, total_loss_dict,last_loss, learning_rate, decoupled_
     #############################33 LOG SE ###############################
     ###### Skip first iteration
     SE_logs = ''
-    if next(iter( last_loss.items() ))[1].item() > 0:
+    # if next(iter( last_loss.items() ))[1].item() > 0:
+    if last_loss:
         total_loss = torch.tensor([0.0], dtype=torch.float, device='cuda')
         last_total_loss = torch.tensor([0.0], dtype=torch.float, device='cuda')
         for key in loss_dict:
@@ -780,12 +791,18 @@ def training_log(loss_dict, total_loss_dict,last_loss, learning_rate, decoupled_
             SE_logs += f'{k} SE: {v.item():.6f} |'
             if wandb_writer:
                 wandb_writer.log({k: v}, iteration)
+                # wandb_writer.log({k  + ' vs. samples': v}, args.consumed_train_samples)
+
+
         ### Report combined_loss
         k = f'Total Loss SE'
         v = torch.abs(total_loss - last_total_loss) / batch_size
         SE_logs += f'Toatal Loss SE: {v.item():.6f} |'
         if wandb_writer:
             wandb_writer.log({k: v}, iteration)
+            ## loss againist samples 
+            # wandb_writer.log({k + ' vs. samples': v}, args.consumed_train_samples)
+            
 
         ########################################################################3
 
@@ -821,28 +838,7 @@ def training_log(loss_dict, total_loss_dict,last_loss, learning_rate, decoupled_
         
         
         log_string += SE_logs
-        # #############################33 LOG SE ###############################
-        # ###### Skip first iteration
-        # if next(iter( last_loss.items() ))[1].item() > 0:
-        #     total_loss = torch.tensor([0.0], dtype=torch.float, device='cuda')
-        #     last_total_loss = torch.tensor([0.0], dtype=torch.float, device='cuda')
-        #     for key in loss_dict:
-        #         total_loss += loss_dict[key]
-        #         last_total_loss += last_loss[key]
-        #         ## Logs SE
-        #         k = f'{key} SE'
-        #         v = torch.abs(loss_dict[key] - last_loss[key]) / batch_size
-        #         log_string += f'SE for {k}: {v.item():.4f} |'
-        #         if wandb_writer:
-        #             wandb_writer.log({k: v}, iteration)
-        #     ### Report combined_loss
-        #     k = f'Total Loss SE'
-        #     v = torch.abs(total_loss - last_total_loss) / batch_size
-        #     log_string += f'SE for Toatal Loss: {v.item():.4f} |'
-        #     if wandb_writer:
-        #         wandb_writer.log({k: v}, iteration)
 
-        #     ########################################################################3
 
         if args.log_throughput:
 
@@ -1040,6 +1036,16 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
 
     begin_iter = iteration
     last_loss= {}
+
+    ### LOG total number of params in wandb surramy
+    params_per_devide = sum([sum([p.nelement() for p in model_module.parameters()])
+                 for model_module in model])
+    total_num_params = params_per_devide * mpu.get_tensor_model_parallel_world_size()
+
+    wandb = get_wandb_writer()
+    if wandb:
+        wandb.run.summary["total_num_of_parms"] = total_num_params
+
     while iteration < args.train_iters:
         if args.profile and \
            iteration == args.profile_step_start and \
@@ -1071,11 +1077,14 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                        config)
         
         ## Initialize last_loss
-        if iteration == begin_iter:
-            last_loss = loss_dict.copy()
-            for k in last_loss:
-                last_loss[k] = torch.tensor([-10], dtype=torch.float, device='cuda')
 
+        # print(f'{iteration=}, {begin_iter=}')
+        # if iteration == begin_iter:
+        #     last_loss = loss_dict.copy()
+        #     for k in last_loss:
+        #         last_loss[k] = torch.tensor([-10], dtype=torch.float, device='cuda')
+
+        # print(f' ============= last_loss ini: {last_loss}======================')
 
         iteration += 1
         batch_size = mpu.get_data_parallel_world_size() * \
