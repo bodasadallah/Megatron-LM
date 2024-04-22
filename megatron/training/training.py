@@ -821,6 +821,7 @@ def training_log(loss_dict, total_loss_dict,last_loss, learning_rate, decoupled_
 
         throughput = num_floating_point_operations(args, batch_size) / (
             elapsed_time_per_iteration * 10**12 * args.world_size)
+        our_throughput = batch_size  / elapsed_time_per_iteration
         if args.log_timers_to_tensorboard:
             if writer:
                 writer.add_scalar('iteration-time',
@@ -843,11 +844,15 @@ def training_log(loss_dict, total_loss_dict,last_loss, learning_rate, decoupled_
         if args.log_throughput:
 
             log_string += f' throughput per GPU (TFLOP/s/GPU): {throughput:.1f} |'
+            log_string += f' our throughput (batch_size / iteration-time): {our_throughput:.2f} |'
+
             if args.log_timers_to_tensorboard:
                 if writer:
                     writer.add_scalar('throughput', throughput, iteration)
                 if wandb_writer:
                     wandb_writer.log({'throughput': throughput}, iteration)
+                    wandb_writer.log({'throughput (ours)': our_throughput}, iteration)
+
         assert learning_rate is not None
         # Decoupled_learning_rate should be not None only on first and last pipeline stage.
         log_string += ' learning rate: {:.6E} |'.format(learning_rate)
